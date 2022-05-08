@@ -1,0 +1,78 @@
+From f00572701a18f17650f193a708f419814c87f408 Mon Sep 17 00:00:00 2001
+From: thatlittlegit <personal@thatlittlegit.tk>
+Date: Fri, 19 Jun 2020 22:04:25 -0400
+Subject: [PATCH] Don't quit unless all windows are closed
+
+This patch is the second version. Changes:
+
+  * add an override via Ctrl-Mod-Shift-Q
+  * remove a useless malloc(3) call
+
+The w1, w2, and children variables unfortunately don't seem removable,
+since XQueryTree would segfault.
+---
+ config.def.h |  8 +++++++-
+ dwm.c        | 17 +++++++++++++++++
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/config.def.h b/config.def.h
+index 1c0b587..c7b8e16 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -93,7 +93,8 @@ static Key keys[] = {
+ 	TAGKEYS(                        XK_7,                      6)
+ 	TAGKEYS(                        XK_8,                      7)
+ 	TAGKEYS(                        XK_9,                      8)
+-	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
++	{ MODKEY|ShiftMask,             XK_q,      try_quit,       {0} },
++	{ MODKEY|ShiftMask|ControlMask, XK_q,      quit,           {0} },
+ };
+ 
+ /* button definitions */
+@@ -113,3 +114,8 @@ static Button buttons[] = {
+ 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+ };
+ 
++/* how many windows should be open when quitting? */
++/* on a stock dwm install, this seems to be two; however, you'll have to
++ * change it depending on how many invisible X windows exist */
++/* you can get a list with `xwininfo -tree -root`. */
++static const int EMPTY_WINDOW_COUNT = 2;
+diff --git a/dwm.c b/dwm.c
+index 664c527..85ee948 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -214,6 +214,7 @@ static void togglebar(const Arg *arg);
+ static void togglefloating(const Arg *arg);
+ static void toggletag(const Arg *arg);
+ static void toggleview(const Arg *arg);
++static void try_quit(const Arg *arg);
+ static void unfocus(Client *c, int setfocus);
+ static void unmanage(Client *c, int destroyed);
+ static void unmapnotify(XEvent *e);
+@@ -1749,6 +1750,22 @@ toggleview(const Arg *arg)
+ 	}
+ }
+ 
++void
++try_quit(const Arg *arg)
++{
++	unsigned int n;
++	Window w1, w2, *children = NULL;
++	XQueryTree(dpy, root, &w1, &w2, &children, &n);
++
++	if (children != NULL)
++		XFree(children);
++
++	if (n == EMPTY_WINDOW_COUNT)
++		running = 0;
++	else
++		printf("[dwm] try_quit condition failed (n=%d)\n", n);
++}
++
+ void
+ unfocus(Client *c, int setfocus)
+ {
+-- 
+2.20.1
+
